@@ -27,10 +27,12 @@ struct ConnectedEvent: Codable {
     let agent: String
     let status: String
     let contextRemaining: Double
+    let tokensUsed: Int?
 
     enum CodingKeys: String, CodingKey {
         case type, agent, status
         case contextRemaining = "context_remaining"
+        case tokensUsed = "tokens_used"
     }
 }
 
@@ -103,10 +105,12 @@ struct StatusUpdateEvent: Codable {
     let type: String
     let status: String
     let contextRemaining: Double
+    let tokensUsed: Int?
 
     enum CodingKeys: String, CodingKey {
         case type, status
         case contextRemaining = "context_remaining"
+        case tokensUsed = "tokens_used"
     }
 }
 

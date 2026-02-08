@@ -30,6 +30,8 @@ targets:
     info:
       path: Window/Info.plist
       properties:
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
         CFBundleDisplayName: Window
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:

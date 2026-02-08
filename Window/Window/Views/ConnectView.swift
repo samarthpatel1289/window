@@ -93,6 +93,15 @@ struct ConnectView: View {
                 Spacer()
             }
             .navigationBarHidden(true)
+            .onAppear {
+                // Pre-fill from saved credentials if available
+                if let savedHost = CredentialStore.loadHost() {
+                    host = savedHost
+                }
+                if let savedKey = CredentialStore.loadApiKey() {
+                    apiKey = savedKey
+                }
+            }
         }
     }
 }

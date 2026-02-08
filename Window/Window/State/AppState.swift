@@ -21,6 +21,7 @@ class AppState: ObservableObject {
     // MARK: - Connection
 
     @Published var isConnected: Bool = false
+    @Published var isReachable: Bool = false
     @Published var serverHost: String = ""
     @Published var apiKey: String = ""
 
@@ -42,8 +43,19 @@ class AppState: ObservableObject {
     private var mockService: MockService?
     private var webSocketClient: WebSocketClient?
     private var restClient: WindowClient?
+    private var healthCheckTimer: Timer?
 
     // MARK: - Connection
+
+    func attemptAutoConnect() {
+        guard CredentialStore.hasSavedCredentials,
+              let host = CredentialStore.loadHost(),
+              let key = CredentialStore.loadApiKey() else {
+            return
+        }
+        
+        connect(host: host, key: key, useMock: false)
+    }
 
     func connect(host: String, key: String, useMock: Bool = false) {
         serverHost = host
@@ -63,9 +75,11 @@ class AppState: ObservableObject {
                 // Fetch status
                 if let status = await rest.fetchStatus() {
                     self.agentStatus = status
+                    self.isReachable = true
                 } else {
                     self.connectionError = "Could not reach agent at \(host)"
                     self.isConnecting = false
+                    self.isReachable = false
                     return
                 }
 
@@ -78,11 +92,19 @@ class AppState: ObservableObject {
                 let ws = WebSocketClient(host: host, apiKey: key, appState: self)
                 self.webSocketClient = ws
                 ws.connect()
+                
+                // Save credentials on successful connection
+                CredentialStore.saveHost(host)
+                CredentialStore.saveApiKey(key)
+                
+                // Start health check polling
+                startHealthCheck()
             }
         }
     }
 
     func disconnect() {
+        stopHealthCheck()
         webSocketClient?.disconnect()
         mockService?.disconnect()
         webSocketClient = nil
@@ -90,8 +112,55 @@ class AppState: ObservableObject {
         restClient = nil
         isConnected = false
         isConnecting = false
+        isReachable = false
         agentStatus = nil
         timeline = []
+        // Note: Does NOT clear saved credentials (use forgetAgent() for that)
+    }
+    
+    func forgetAgent() {
+        disconnect()
+        CredentialStore.clear()
+        serverHost = ""
+        apiKey = ""
+    }
+    
+    func handleWebSocketDisconnect() {
+        isReachable = false
+        // Optionally retry connection after a delay
+        Task {
+            try? await Task.sleep(for: .seconds(3))
+            if !isReachable, let ws = webSocketClient {
+                ws.connect()
+            }
+        }
+    }
+    
+    // MARK: - Health Check
+    
+    private func startHealthCheck() {
+        stopHealthCheck()
+        
+        healthCheckTimer = Timer.scheduledTimer(withTimeInterval: 10.0, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                await self?.performHealthCheck()
+            }
+        }
+    }
+    
+    private func stopHealthCheck() {
+        healthCheckTimer?.invalidate()
+        healthCheckTimer = nil
+    }
+    
+    private func performHealthCheck() async {
+        guard let rest = restClient else { return }
+        
+        if let _ = await rest.fetchStatus() {
+            isReachable = true
+        } else {
+            isReachable = false
+        }
     }
 
     // MARK: - Send Message
@@ -115,13 +184,14 @@ class AppState: ObservableObject {
 
     // MARK: - Event Handlers (called by services)
 
-    func handleConnected(agent: String, status: String, contextRemaining: Double) {
+    func handleConnected(agent: String, status: String, contextRemaining: Double, tokensUsed: Int = 0) {
         isConnected = true
         isConnecting = false
         agentStatus = AgentStatus(
             agent: agent,
             status: AgentStatus.AgentState(rawValue: status) ?? .idle,
-            contextRemaining: contextRemaining
+            contextRemaining: contextRemaining,
+            tokensUsed: tokensUsed
         )
     }
 
@@ -223,9 +293,12 @@ class AppState: ObservableObject {
         timeline[index] = .task(task)
     }
 
-    func handleStatusUpdate(status: String, contextRemaining: Double) {
+    func handleStatusUpdate(status: String, contextRemaining: Double, tokensUsed: Int = 0) {
         agentStatus?.status = AgentStatus.AgentState(rawValue: status) ?? .idle
         agentStatus?.contextRemaining = contextRemaining
+        if tokensUsed > 0 {
+            agentStatus?.tokensUsed = tokensUsed
+        }
     }
 
     func loadHistoryMessages(_ messages: [Message]) {

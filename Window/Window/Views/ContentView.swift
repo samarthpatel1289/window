@@ -43,9 +43,9 @@ struct ContentView: View {
                         Spacer()
                         HStack(spacing: 6) {
                             Circle()
-                                .fill(appState.isConnected ? Color.green : Color.red)
+                                .fill(appState.isReachable ? Color.green : Color.red)
                                 .frame(width: 8, height: 8)
-                            Text(appState.isConnected ? "Connected" : "Disconnected")
+                            Text(appState.isReachable ? "Connected" : "Disconnected")
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -57,23 +57,33 @@ struct ContentView: View {
                             .foregroundStyle(.secondary)
                     }
 
-                    if let ctx = appState.agentStatus?.contextRemaining {
+                    if let status = appState.agentStatus, status.tokensUsed > 0 {
                         HStack {
-                            Text("Context Left")
+                            Text("Tokens Used")
                             Spacer()
-                            Text("\(Int(ctx * 100))%")
+                            Text(formatTokens(status.tokensUsed))
                                 .foregroundStyle(.secondary)
                         }
                     }
                 }
 
                 Section {
-                    Button("Disconnect", role: .destructive) {
+                    Button("Disconnect") {
                         appState.disconnect()
+                    }
+                    
+                    Button("Forget Agent", role: .destructive) {
+                        appState.forgetAgent()
                     }
                 }
             }
             .navigationTitle("Settings")
         }
+    }
+
+    private func formatTokens(_ count: Int) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        return formatter.string(from: NSNumber(value: count)) ?? "\(count)"
     }
 }

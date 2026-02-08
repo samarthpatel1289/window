@@ -8,6 +8,9 @@ struct WindowApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(appState)
+                .onAppear {
+                    appState.attemptAutoConnect()
+                }
         }
     }
 }

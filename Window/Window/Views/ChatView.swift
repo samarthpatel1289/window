@@ -70,22 +70,11 @@ struct ChatView: View {
 
             Spacer()
 
-            // Context remaining
-            if let ctx = appState.agentStatus?.contextRemaining {
-                HStack(spacing: 4) {
-                    Text("Context")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-
-                    ProgressView(value: ctx)
-                        .frame(width: 60)
-                        .tint(contextColor(ctx))
-
-                    Text("\(Int(ctx * 100))%")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .frame(width: 32, alignment: .trailing)
-                }
+            // Token usage
+            if let status = appState.agentStatus {
+                Text(formatTokens(status.tokensUsed))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         }
         .padding(.horizontal)
@@ -94,13 +83,15 @@ struct ChatView: View {
     }
 
     private var reachabilityColor: Color {
-        appState.isConnected ? .green : .red
+        appState.isReachable ? .green : .red
     }
 
-    private func contextColor(_ value: Double) -> Color {
-        if value > 0.5 { return .green }
-        if value > 0.2 { return .orange }
-        return .red
+    private func formatTokens(_ count: Int) -> String {
+        if count == 0 { return "" }
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        let formatted = formatter.string(from: NSNumber(value: count)) ?? "\(count)"
+        return "\(formatted) tokens"
     }
 
     // MARK: - Input Bar

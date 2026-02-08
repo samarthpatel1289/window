@@ -92,6 +92,9 @@ class WebSocketClient {
             case .failure(let error):
                 print("[WebSocketClient] Receive error: \(error)")
                 self.isConnected = false
+                Task { @MainActor [weak self] in
+                    self?.appState?.handleWebSocketDisconnect()
+                }
             }
         }
     }
@@ -112,7 +115,8 @@ class WebSocketClient {
                 appState.handleConnected(
                     agent: e.agent,
                     status: e.status,
-                    contextRemaining: e.contextRemaining
+                    contextRemaining: e.contextRemaining,
+                    tokensUsed: e.tokensUsed ?? 0
                 )
 
             case .messageStream(let e):
@@ -188,7 +192,8 @@ class WebSocketClient {
             case .statusUpdate(let e):
                 appState.handleStatusUpdate(
                     status: e.status,
-                    contextRemaining: e.contextRemaining
+                    contextRemaining: e.contextRemaining,
+                    tokensUsed: e.tokensUsed ?? 0
                 )
             }
         }

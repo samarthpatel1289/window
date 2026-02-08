@@ -19,7 +19,8 @@ class MockService {
             appState?.handleConnected(
                 agent: "mock-agent",
                 status: "idle",
-                contextRemaining: 0.85
+                contextRemaining: 0.85,
+                tokensUsed: 3200
             )
 
             // Load some fake history
@@ -38,7 +39,7 @@ class MockService {
             try? await Task.sleep(nanoseconds: 300_000_000) // 0.3s
 
             // Update status to busy
-            appState?.handleStatusUpdate(status: "busy", contextRemaining: 0.78)
+            appState?.handleStatusUpdate(status: "busy", contextRemaining: 0.78, tokensUsed: 4100)
 
             // AI decides whether progress should be visible.
             let shouldShowProgress = shouldShowProgress(for: content)
@@ -120,7 +121,7 @@ class MockService {
             }
 
             // Back to idle
-            appState?.handleStatusUpdate(status: "idle", contextRemaining: 0.72)
+            appState?.handleStatusUpdate(status: "idle", contextRemaining: 0.72, tokensUsed: 5600)
         }
     }
 
