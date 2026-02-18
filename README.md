@@ -39,6 +39,41 @@ Window connects to any [nanobot](https://github.com/HKUDS/nanobot) instance with
 
 See [our nanobot fork](https://github.com/samarthpatel1289/nanobot) for the Window Protocol server implementation.
 
+## OpenClaw Bridge Setup
+
+Window can also connect to an [OpenClaw](https://github.com/anarchy-ai/OpenClaw) agent using a bridge server. The bridge translates between the OpenClaw Gateway WebSocket protocol and the Window Protocol.
+
+### Quick Install (on your VPS with OpenClaw)
+
+Run this on your VPS where OpenClaw is already running:
+
+```bash
+curl -sL https://raw.githubusercontent.com/samarthpatel1289/window/main/bridge/install.sh | sudo bash
+```
+
+The installer will:
+1. Auto-detect your OpenClaw gateway configuration
+2. Create the bridge at `/opt/window-bridge/`
+3. Set up a systemd service for auto-start
+4. Print the URL and API key to enter in the Window iOS app
+
+### Manual Setup
+
+If you prefer, you can also install manually:
+
+```bash
+# Clone and install
+git clone https://github.com/samarthpatel1289/window.git
+cd window/bridge
+sudo bash install.sh
+```
+
+### Features
+
+- **Real-time task visibility** — OpenClaw tool calls appear as a single "Researching" task card with expandable steps
+- **Clean tool names** — internal commands (curl, exec) are translated to human-readable descriptions ("Searching for...", "Fetching from...")
+- **WebSocket streaming** — message deltas arrive in real-time as the agent types
+
 ## Run Locally
 
 Requirements:
