@@ -48,12 +48,18 @@ class AppState: ObservableObject {
     // MARK: - Connection
 
     func attemptAutoConnect() {
+        // Load persisted messages immediately so user sees history before reconnecting
+        let saved = MessageStore.load()
+        if !saved.isEmpty {
+            timeline = saved.map { .message($0) }
+        }
+
         guard CredentialStore.hasSavedCredentials,
               let host = CredentialStore.loadHost(),
               let key = CredentialStore.loadApiKey() else {
             return
         }
-        
+
         connect(host: host, key: key, useMock: false)
     }
 
@@ -114,12 +120,13 @@ class AppState: ObservableObject {
         isConnecting = false
         isReachable = false
         agentStatus = nil
-        timeline = []
-        // Note: Does NOT clear saved credentials (use forgetAgent() for that)
+        // Note: Does NOT clear timeline or saved credentials (use forgetAgent() for that)
     }
     
     func forgetAgent() {
         disconnect()
+        timeline = []
+        MessageStore.clear()
         CredentialStore.clear()
         serverHost = ""
         apiKey = ""
@@ -174,6 +181,7 @@ class AppState: ObservableObject {
             timestamp: Date()
         )
         timeline.append(.message(userMessage))
+        persistMessages()
 
         if let mock = mockService {
             mock.sendMessage(id: clientId, content: content)
@@ -240,6 +248,7 @@ class AppState: ObservableObject {
                 timestamp: timestamp
             )))
         }
+        persistMessages()
     }
 
     func handleTaskCreated(taskId: String, title: String, progress: Double, steps: [TaskStep], shouldDisplay: Bool = true) {
@@ -302,6 +311,32 @@ class AppState: ObservableObject {
     }
 
     func loadHistoryMessages(_ messages: [Message]) {
-        timeline = messages.map { .message($0) }
+        // Merge server history with locally persisted messages (no duplicates)
+        let existingIds = Set(timeline.compactMap { item -> String? in
+            if case .message(let m) = item { return m.id }
+            return nil
+        })
+        let serverIds = Set(messages.map { $0.id })
+
+        // Keep local messages not in server response, then append server messages
+        let localOnly = timeline.filter { item in
+            if case .message(let m) = item { return !serverIds.contains(m.id) }
+            return false
+        }
+        let merged = localOnly + messages.map { .message($0) }
+        // Sort by timestamp
+        timeline = merged.sorted { a, b in
+            guard case .message(let ma) = a, case .message(let mb) = b else { return false }
+            return ma.timestamp < mb.timestamp
+        }
+        persistMessages()
+    }
+
+    private func persistMessages() {
+        let messages = timeline.compactMap { item -> Message? in
+            if case .message(let m) = item, !m.isStreaming { return m }
+            return nil
+        }
+        MessageStore.save(messages)
     }
 }
